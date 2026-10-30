@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مغناطیس‌سنج حرفه‌ای</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body {
+            background: radial-gradient(ellipse at top, #1a1f2e, #0a0d14);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px 10px;
+            overflow-x: hidden;
+        }
+
+        .header { text-align: center; margin-bottom: 15px; }
+        .header h1 { font-size: 18px; color: #00E676; margin-bottom: 5px; }
+        .header p { font-size: 11px; color: #7a7f8f; line-height: 1.5; }
+
+        /* دایره اصلی */
+        .gauge-container {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin: 10px auto 20px;
+        }
+        .gauge-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from -90deg, #00E676 0deg, #ffeb3b 180deg, #FF5252 270deg, #FF5252 360deg);
+            opacity: 0.15;
+            mask: radial-gradient(circle, transparent 55%, black 56%);
+            -webkit-mask: radial-gradient(circle, transparent 55%, black 56%);
+        }
+        .gauge-bg {
+            position: absolute;
+            inset: 15px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #252b3b, #0f1119);
+            border: 2px solid #2a2e3d;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.6), 0 0 50px rgba(0, 230, 118, 0.15);
+            transition: box-shadow 0.3s;
+        }
+        .gauge-value {
+            font-size: 52px;
+            font-weight: 900;
+            color: #00E676;
+            text-shadow: 0 0 25px currentColor;
+            line-height: 1;
+            transition: color 0.3s;
+        }
+        .gauge-unit { font-size: 12px; color: #7a7f8f; margin-top: 6px; letter-spacing: 1px; }
+        .gauge-status {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e222d;
+            border: 1px solid #2a2e3d;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 10px;
+            color: #ff9800;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* سه محور */
+        .axes {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+            max-width: 340px;
+            margin-bottom: 15px;
+        }
+        .axis {
+            background: linear-gradient(145deg, #1e222d, #151821);
+            border: 1px solid #2a2e3d;
+            border-radius: 10px;
+            padding: 10px 6px;
+            text-align: center;
+        }
+        .axis-label { font-size: 10px; color: #7a7f8f; margin-bottom: 4px; font-weight: bold; }
+        .axis-value { font-size: 15px; font-weight: 900; }
+        .axis.x .axis-value { color: #FF5252; }
+        .axis.y .axis-value { color: #00E676; }
+        .axis.z .axis-value { color: #4FC3F7; }
+
+        /* نمودار زنده */
+        .chart-container {
+            width: 100%;
+            max-width: 340px;
+            height: 100px;
+            background: #0f1119;
+            border: 1px solid #2a2e3d;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        .chart-container canvas { width: 100%; height: 100%; display: block; }
+        .chart-label {
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            font-size: 9px;
+            color: #7a7f8f;
+        }
+
+        /* نوار وضعیت */
+        .status-panel {
+            width: 100%;
+            max-width: 340px;
+            background: linear-gradient(145deg, #1e222d, #151821);
+            border: 1px solid #2a2e3d;
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            padding: 5px 0;
+        }
+        .status-row:not(:last-child) { border-bottom: 1px solid #252b3b; }
+        .status-label { color: #7a7f8f; }
+        .status-value { color: #fff; font-weight: bold; }
+        .status-value.good { color: #00E676; }
+        .status-value.warn { color: #ff9800; }
+        .status-value.bad { color: #FF5252; }
+
+        /* دکمه‌ها */
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            max-width: 340px;
+            margin-bottom: 15px;
+        }
+        .btn {
+            flex: 1;
+            border: none;
+            padding: 12px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.15s, opacity 0.15s;
+            font-family: inherit;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary {
+            background: linear-gradient(145deg, #00E676, #00b359);
+            color: #0a0d14;
+        }
+        .btn-secondary {
+            background: linear-gradient(145deg, #ff9800, #e68900);
+            color: #0a0d14;
+        }
+        .btn-danger {
+            background: linear-gradient(145deg, #FF5252, #d93c3c);
+            color: #fff;
+        }
+
+        /* راهنما */
+        .info-box {
+            width: 100%;
+            max-width: 340px;
+            background: rgba(79, 195, 247, 0.08);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 10px;
+            line-height: 1.7;
+            color: #a8c5d8;
+        }
+        .info-box b { color: #4FC3F7; }
+
+        /* پیام خطا */
+        .error-box {
+            display: none;
+            width: 100%;
+            max-width: 340px;
+            background: rgba(255, 82, 82, 0.1);
+            border: 1px solid rgba(255, 82, 82, 0.4);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 11px;
+            line-height: 1.7;
+            color: #ffb3b3;
+            margin-bottom: 15px;
+        }
+        .error-box b { color: #FF5252; }
+
+        /* حالت کالیبراسیون */
+        .calibration-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+        }
+        .calibration-overlay.active { display: flex; }
+        .calibration-figure {
+            width: 200px;
+            height: 200px;
+            border: 3px dashed #ff9800;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            animation: rotate 3s linear infinite;
+            font-size: 60px;
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .calibration-overlay h2 { color: #ff9800; margin-bottom: 10px; }
+        .calibration-overlay p { color: #a3a6af; font-size: 12px; line-height: 1.7; max-width: 300px; }
+        .calibration-progress {
+            width: 260px;
+            height: 6px;
+            background: #2a2e3d;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .calibration-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff9800, #00E676);
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🧲 مغناطیس‌سنج حرفه‌ای</h1>
+        <p>میدان مغناطیسی اطراف گوشی را اندازه‌گیری می‌کند</p>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <div class="gauge-container">
+        <div class="gauge-ring"></div>
+        <div class="gauge-bg" id="gaugeBg">
+            <div class="gauge-value" id="totalValue">--</div>
+            <div class="gauge-unit">μT (میکروتسلا)</div>
+        </div>
+        <div class="gauge-status" id="gaugeStatus">آماده</div>
+    </div>
+
+    <div class="axes">
+        <div class="axis x">
+            <div class="axis-label">X (افقی)</div>
+            <div class="axis-value" id="xVal">--</div>
+        </div>
+        <div class="axis y">
+            <div class="axis-label">Y (عمودی)</div>
+            <div class="axis-value" id="yVal">--</div>
+        </div>
+        <div class="axis z">
+            <div class="axis-label">Z (عمق)</div>
+            <div class="axis-value" id="zVal">--</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="chart"></canvas>
+        <div class="chart-label">نمودار ۱۰ ثانیه اخیر</div>
+    </div>
+
+    <div class="status-panel">
+        <div class="status-row">
+            <span class="status-label">وضعیت سنسور:</span>
+            <span class="status-value" id="sensorStatus">در انتظار شروع</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">تعداد نمونه:</span>
+            <span class="status-value" id="sampleCount">0</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">میانگین ۵ ثانیه:</span>
+            <span class="status-value" id="avgValue">--</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">بیشترین مقدار:</span>
+            <span class="status-value" id="maxValue">--</span>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-primary" id="startBtn">شروع</button>
+        <button class="btn btn-secondary" id="calibrateBtn" disabled>کالیبراسیون</button>
+        <button class="btn btn-danger" id="resetBtn" disabled>ریست</button>
+    </div>
+
+    <div class="info-box">
+        <b>💡 نکته:</b> اگر عدد را ثابت نگه داری و آهنربا را نزدیک کنی، عدد باید بپرد. اگر با تکون دادن گوشی عدد تغییر می‌کند، یعنی سنسور مغناطیسی واقعی در دسترس نیست.
+    </div>
+
+    <div class="calibration-overlay" id="calibrationOverlay">
+        <h2>🔄 کالیبراسیون</h2>
+        <p>گوشی را به شکل عدد ۸ در هوا بچرخانید تا سنسور کالیبره شود</p>
+        <div class="calibration-figure">∞</div>
+        <div class="calibration-progress">
+            <div class="calibration-progress-fill" id="calibrationProgress"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============ المان‌ها ============
+        const els = {
+            total: document.getElementById('totalValue'),
+            x: document.getElementById('xVal'),
+            y: document.getElementById('yVal'),
+            z: document.getElementById('zVal'),
+            gaugeBg: document.getElementById('gaugeBg'),
+            gaugeStatus: document.getElementById('gaugeStatus'),
+            sensorStatus: document.getElementById('sensorStatus'),
+            sampleCount: document.getElementById('sampleCount'),
+            avgValue: document.getElementById('avgValue'),
+            maxValue: document.getElementById('maxValue'),
+            startBtn: document.getElementById('startBtn'),
+            calibrateBtn: document.getElementById('calibrateBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            errorBox: document.getElementById('errorBox'),
+            chart: document.getElementById('chart'),
+            calibrationOverlay: document.getElementById('calibrationOverlay'),
+            calibrationProgress: document.getElementById('calibrationProgress')
+        };
+
+        // ============ متغیرها ============
+        let sensorActive = false;
+        let sensor = null;
+        let samples = [];        // تاریخچه برای میانگین
+        let chartData = [];      // داده‌های نمودار (آخرین ۱۰۰ نمونه)
+        let sampleCount = 0;
+        let maxReading = 0;
+        let calibrationMode = false;
+        let calibrationStartTime = 0;
+        const MAX_CHART_POINTS = 100;
+        const CALIBRATION_DURATION = 8000; // 8 ثانیه
+
+        // ============ تشخیص و راه‌اندازی سنسور ============
+
+        function checkSensorAvailability() {
+            // بررسی وجود API
+            if (typeof Magnetometer === 'undefined') {
+                return { available: false, reason: 'API Magnetometer در این مرورگر وجود ندارد' };
+            }
+            return { available: true };
+        }
+
+        async function startSensor() {
+            const check = checkSensorAvailability();
+            if (!check.available) {
+                showError(`<b>❌ سنسور در دسترس نیست</b><br>${check.reason}<br><br>
+                    این معمولاً به یکی از این دلایل است:<br>
+                    • مرورگر از این API پشتیبانی نمی‌کند (Chrome اندروید نسخه ۹۰+ لازم است)<br>
+                    • گوشی سنسور مغناطیسی ندارد<br>
+                    • دسترسی به سنسورها در تنظیمات مرورگر مسدود شده است<br><br>
+                    <b>راه حل:</b> از اپلیکیشن‌های اختصاصی مثل <b>Sensor Box</b> یا <b>CPU-Z</b> استفاده کنید.`);
+                return;
+            }
+
+            try {
+                sensor = new Magnetometer({ frequency: 20 });
+
+                sensor.addEventListener('reading', onReading);
+                sensor.addEventListener('error', onSensorError);
+                sensor.start();
+
+                // صبر کن ببینیم داده می‌رسد یا نه
+                setTimeout(() => {
+                    if (sampleCount === 0) {
+                        showError(`<b>⚠️ سنسور فعال شد اما داده نمی‌فرستد</b><br>
+                            ممکن است گوشی شما سنسور مغناطیسی واقعی نداشته باشد یا در تنظیمات غیرفعال باشد.`);
+                        try { sensor.stop(); } catch(e) {}
+                        sensorActive = false;
+                    }
+                }, 2000);
+
+            } catch (err) {
+                showError(`<b>❌ خطا در راه‌اندازی</b><br>${err.message}`);
+            }
+        }
+
+        function onReading() {
+            if (!sensor) return;
+
+            const x = sensor.x || 0;
+            const y = sensor.y || 0;
+            const z = sensor.z || 0;
+            const total = Math.sqrt(x*x + y*y + z*z);
+
+            sampleCount++;
+
+            if (!sensorActive) {
+                sensorActive = true;
+                els.startBtn.textContent = 'توقف';
+                els.startBtn.classList.remove('btn-primary');
+                els.startBtn.classList.add('btn-danger');
+                els.calibrateBtn.disabled = false;
+                els.resetBtn.disabled = false;
+                els.sensorStatus.textContent = '✅ فعال (سنسور مستقیم)';
+                els.sensorStatus.className = 'status-value good';
+            }
+
+            // به‌روزرسانی مقادیر
+            els.x.textContent = x.toFixed(1);
+            els.y.textContent = y.toFixed(1);
+            els.z.textContent = z.toFixed(1);
+            els.total.textContent = total.toFixed(1);
+            els.sampleCount.textContent = sampleCount.toLocaleString('fa');
+
+            // بیشینه
+            if (total > maxReading) {
+                maxReading = total;
+                els.maxValue.textContent = maxReading.toFixed(1);
+            }
+
+            // میانگین متحرک (۵ ثانیه اخیر)
+            samples.push(total);
+            if (samples.length > 100) samples.shift();
+            const avg = samples.reduce((a,b) => a+b, 0) / samples.length;
+            els.avgValue.textContent = avg.toFixed(1);
+
+            // رنگ‌بندی بر اساس شدت
+            updateGaugeColor(total);
+
+            // نمودار
+            chartData.push(total);
+            if (chartData.length > MAX_CHART_POINTS) chartData.shift();
+            drawChart();
+
+            // حالت کالیبراسیون
+            if (calibrationMode) {
+                updateCalibration();
+            }
+        }
+
+        function updateGaugeColor(total) {
+            let color, status, boxShadow;
+            if (total < 15) {
+                color = '#4FC3F7';
+                status = '⚠️ خیلی کم — شاید سنسور مشکل دارد';
+                boxShadow = 'inset 0 0 30px rgba(0,0,0,0.6), 0 0 50px rgba(79, 195, 247, 0.2)';
+            } else if (total < 30) {
+                color = '#00E676';
+                status = '✅ طبیعی — نزدیک میدان زمین';
+                boxShadow = 'inset 0 0 30px rgba(0,0,0,0.6), 0 0 50px rgba(0, 230, 118, 0.3)';
+            } else if (total < 70) {
+                color = '#00E676';
+                status = '✅ محدوده میدان زمین';
+                boxShadow = 'inset 0 0 30px rgba(0,0,0,0.6), 0 0 50px rgba(0, 230, 118, 0.4)';
+            } else if (total < 150) {
+                color = '#ff9800';
+                status = '⚡ میدان قوی — نزدیک فلز';
+                boxShadow = 'inset 0 0 30px rgba(0,0,0,0.6), 0 0 50px rgba(255, 152, 0, 0.5)';
+            } else if (total < 300) {
+                color = '#FF5252';
+                status = '🔴 میدان بسیار قوی!';
+                boxShadow = 'inset 0 0 30px rgba(0,0,0,0.6), 0 0 50px rgba(255, 82, 82, 0.6)';
+            } else {
+                color = '#FF1744';
+                status = '💥 احتمالاً آهنربا!';
+                boxShadow = 'inset 0 0 30px rgba(0,0,0,0.6), 0 0 60px rgba(255, 23, 68, 0.8)';
+            }
+
+            els.total.style.color = color;
+            els.gaugeBg.style.boxShadow = boxShadow;
+            els.gaugeStatus.textContent = status;
+            els.gaugeStatus.style.color = color;
+        }
+
+        // ============ نمودار زنده ============
+        function drawChart() {
+            const canvas = els.chart;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * 2;
+            canvas.height = rect.height * 2;
+            ctx.scale(2, 2);
+
+            const w = rect.width, h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // خطوط راهنما
+            ctx.strokeStyle = '#1e222d';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                const y = (h / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            if (chartData.length < 2) return;
+
+            const maxVal = Math.max(...chartData, 100);
+            const step = w / (MAX_CHART_POINTS - 1);
+
+            // گرادیانت زیر نمودار
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, 'rgba(0, 230, 118, 0.4)');
+            grad.addColorStop(1, 'rgba(0, 230, 118, 0)');
+
+            // خط نمودار
+            ctx.beginPath();
+            ctx.strokeStyle = '#00E676';
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+
+            chartData.forEach((val, i) => {
+                const x = w - (chartData.length - 1 - i) * step;
+                const y = h - (val / maxVal) * (h - 10) - 5;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // پس‌زمینه زیر نمودار
+            ctx.lineTo(w - (MAX_CHART_POINTS - chartData.length) * step, h);
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+        }
+
+        // ============ کالیبراسیون ============
+        function startCalibration() {
+            if (!sensorActive) return;
+            calibrationMode = true;
+            calibrationStartTime = Date.now();
+            els.calibrationOverlay.classList.add('active');
+        }
+
+        function updateCalibration() {
+            const elapsed = Date.now() - calibrationStartTime;
+            const progress = Math.min(100, (elapsed / CALIBRATION_DURATION) * 100);
+            els.calibrationProgress.style.width = progress + '%';
+
+            if (progress >= 100) {
+                endCalibration();
+            }
+        }
+
+        function endCalibration() {
+            calibrationMode = false;
+            els.calibrationOverlay.classList.remove('active');
+            els.calibrationProgress.style.width = '0%';
+        }
+
+        // ============ کنترل‌ها ============
+        function stopSensor() {
+            if (sensor) {
+                try { sensor.stop(); } catch(e) {}
+                sensor = null;
+            }
+            sensorActive = false;
+            els.startBtn.textContent = 'شروع';
+            els.startBtn.classList.remove('btn-danger');
+            els.startBtn.classList.add('btn-primary');
+            els.sensorStatus.textContent = 'متوقف شده';
+            els.sensorStatus.className = 'status-value warn';
+        }
+
+        function resetAll() {
+            samples = [];
+            chartData = [];
+            sampleCount = 0;
+            maxReading = 0;
+            els.total.textContent = '--';
+            els.x.textContent = '--';
+            els.y.textContent = '--';
+            els.z.textContent = '--';
+            els.sampleCount.textContent = '0';
+            els.avgValue.textContent = '--';
+            els.maxValue.textContent = '--';
+            els.gaugeStatus.textContent = 'آماده';
+            els.gaugeStatus.style.color = '#ff9800';
+            els.total.style.color = '#00E676';
+            els.gaugeBg.style.boxShadow = 'inset 0 0 30px rgba(0,0,0,0.6), 0 0 50px rgba(0, 230, 118, 0.15)';
+            els.errorBox.style.display = 'none';
+            drawChart();
+        }
+
+        function onSensorError(e) {
+            showError(`<b>❌ خطای سنسور:</b> ${e.error ? e.error.name : 'نامشخص'}`);
+            stopSensor();
+        }
+
+        function showError(html) {
+            els.errorBox.innerHTML = html;
+            els.errorBox.style.display = 'block';
+        }
+
+        // ============ رویدادها ============
+        els.startBtn.addEventListener('click', () => {
+            if (sensorActive) {
+                stopSensor();
+            } else {
+                resetAll();
+                startSensor();
+            }
+        });
+
+        els.calibrateBtn.addEventListener('click', startCalibration);
+        els.resetBtn.addEventListener('click', resetAll);
+
+        // رسم اولیه نمودار
+        window.addEventListener('load', () => setTimeout(drawChart, 100));
+        window.addEventListener('resize', drawChart);
+    </script>
+</body>
+</html>
